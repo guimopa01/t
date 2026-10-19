@@ -151,9 +151,9 @@ h2 { margin-bottom: 0; font-size: 30px; line-height: 1.15; font-weight: 600; }
 .selected-save-name { max-width: 100%; overflow: hidden; color: #748174; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .launch-footnote { margin: 17px 0 0; color: #969d91; font-size: 10px; line-height: 1.5; }
 .play-panel { padding: 20px 26px 16px; }
-.emulator-stage { min-height: 300px; position: relative; display: grid; place-items: center; overflow: hidden; background: #111a16; }
-#game { width: 100%; min-height: 300px; }
-#game canvas { max-width: 100%; }
+.emulator-stage { height: min(68dvh, 56.25vw); min-height: min(240px, 68dvh); position: relative; display: grid; place-items: center; overflow: hidden; background: #111a16; }
+#game { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+#game .ejs_canvas_parent, #game canvas { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
 .emulator-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13px; background: #111a16; color: #bcc7b8; font: 10px var(--mono); letter-spacing: .1em; pointer-events: none; transition: opacity .3s ease; }
 .emulator-loading.is-hidden { opacity: 0; }
 .emulator-loading.has-error { pointer-events: auto; }
@@ -232,8 +232,7 @@ h2 { margin-bottom: 0; font-size: 30px; line-height: 1.15; font-weight: 600; }
   .launch-art-cross { font-size: 64px; }
   .launch-copy h3 { font-size: 31px; }
   .play-panel { padding: 12px; }
-  .emulator-stage { min-height: 245px; }
-  #game { min-height: 245px; }
+  .emulator-stage { height: min(68dvh, 56.25vw); min-height: min(200px, 68dvh); }
   .play-toolbar { padding: 10px 0; align-items: start; flex-direction: column; }
   .save-actions { justify-content: start; }
   .save-help { flex-basis: 100%; }

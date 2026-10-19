@@ -16,6 +16,8 @@ La primera carga puede tardar varios minutos: los cartuchos de Nintendo DS de es
 
 GitHub Pages sirve los archivos Git LFS como pequeños punteros de texto, no como ROM. La página detecta ese caso antes del arranque y permite elegir el archivo `.gba` o `.nds` original del dispositivo; así el cartucho se carga localmente sin publicar ni alojar los ROM.
 
+El selector local rechaza también los archivos puntero de Git LFS descargados por error. El área de juego tiene una altura limitada por la ventana para evitar que el canvas de EmulatorJS expanda indefinidamente la página.
+
 ## Archivos y permisos
 
 Los juegos de este repositorio están gestionados con Git LFS y superan en conjunto el límite habitual de tamaño de un despliegue de GitHub Pages; el archivo más grande también excede límites de archivo estático habituales en proveedores como Vercel. La interfaz puede desplegarse por separado, pero los ROM deben servirse desde un almacenamiento compatible o seleccionarse localmente.

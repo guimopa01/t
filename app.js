@@ -569,7 +569,7 @@ grid.addEventListener('keydown', (event) => {
 document.querySelector('#new-game').addEventListener('click', () => {
   launchGame().catch(reportLaunchFailure);
 });
-romFileInput.addEventListener('change', () => {
+romFileInput.addEventListener('change', async () => {
   const file = romFileInput.files[0];
   romFileInput.value = '';
   if (!file || !activeGame) return;
@@ -582,12 +582,32 @@ romFileInput.addEventListener('change', () => {
     return;
   }
 
+  if (file.size <= 256) {
+    try {
+      const content = await file.slice(0, 256).text();
+      if (content.startsWith('version https://git-lfs.github.com/spec/v1')) {
+        romMessage.textContent = 'El archivo seleccionado es solo una referencia Git LFS, no el cartucho. GitHub Pages no permite descargar el ROM desde ese enlace; selecciona la copia original del juego desde tu dispositivo.';
+        romMessage.hidden = false;
+        return;
+      }
+    } catch (error) {
+      console.error('No se pudo comprobar el cartucho seleccionado.', error);
+      romMessage.textContent = `No se pudo comprobar el cartucho seleccionado: ${error.message}`;
+      romMessage.hidden = false;
+      return;
+    }
+  }
+
+  startSelectedRom(file);
+});
+
+function startSelectedRom(file) {
   if (activeRomObjectUrl) URL.revokeObjectURL(activeRomObjectUrl);
   activeRomObjectUrl = URL.createObjectURL(file);
   romMessage.textContent = `Cartucho seleccionado: ${file.name}`;
   romMessage.hidden = false;
   launchGame(queuedSave, false, activeRomObjectUrl).catch(reportLaunchFailure);
-});
+}
 initialSaveInput.addEventListener('change', () => {
   queuedSave = initialSaveInput.files[0] || null;
   if (!queuedSave) return;
