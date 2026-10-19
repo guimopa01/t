@@ -183,6 +183,9 @@ function updateEmulatorLoading(thisLaunch) {
       ? `Detalle técnico: ${startupErrorDetails}`
       : 'No se pudo arrancar el núcleo. Revisa la conexión con EmulatorJS e inténtalo otra vez.';
     loadingHint.hidden = false;
+    if (currentLaunchUsesLegacy) {
+      showMessage('El núcleo compatible también ha fallado. Consulta el detalle técnico del error.');
+    }
     retryWithLegacyCore(thisLaunch, error.textContent.trim());
     return;
   }
@@ -234,6 +237,9 @@ function showStartupErrorDetails(error) {
   loadingStatus.textContent = 'ERROR AL INICIAR EL JUEGO';
   loadingHint.textContent = `Detalle técnico: ${startupErrorDetails}`;
   loadingHint.hidden = false;
+  if (currentLaunchUsesLegacy) {
+    showMessage('El núcleo compatible también ha fallado. Consulta el detalle técnico del error.');
+  }
   retryWithLegacyCore(launchSequence, startupErrorDetails);
 }
 
@@ -258,6 +264,19 @@ function retryWithLegacyCore(thisLaunch, details) {
     window.EJS_emulator = undefined;
     launchGame(pendingSave, true);
   }, 1200);
+}
+
+function bypassEmptyCheatReset() {
+  const prototype = window.EJS_GameManager?.prototype;
+  if (!prototype || prototype.resetCheat?.emptyCheatSafe) return;
+
+  const resetCheat = prototype.resetCheat;
+  const safeResetCheat = function (...args) {
+    if (Array.isArray(this.EJS?.cheats) && !this.EJS.cheats.some((cheat) => cheat.checked)) return;
+    return resetCheat.apply(this, args);
+  };
+  safeResetCheat.emptyCheatSafe = true;
+  prototype.resetCheat = safeResetCheat;
 }
 
 function captureStartupWindowError(event) {
@@ -408,6 +427,7 @@ function launchGame(saveFile = null, forceLegacy = false) {
   window.EJS_forceLegacyCores = forceLegacy;
   window.EJS_defaultOptions = { webgl2Enabled: forceLegacy ? 'disabled' : 'enabled' };
   if (!forceLegacy) forceWebGL2Preference(activeGame);
+  window.EJS_ready = bypassEmptyCheatReset;
   startupErrorDetails = '';
   startupErrorSequence = thisLaunch;
   window.removeEventListener('error', captureStartupWindowError);
