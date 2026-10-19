@@ -95,9 +95,12 @@
             <p class="launch-description">Tu partida se conserva en este navegador. También puedes importar un archivo compatible.</p>
             <div class="launch-actions">
               <button id="new-game" class="button-primary" type="button"><span aria-hidden="true">▶</span> Nueva partida</button>
+              <label id="rom-file-label" class="button-secondary" for="rom-file"><span aria-hidden="true">▣</span> Elegir cartucho</label>
+              <input id="rom-file" class="file-input" type="file" accept=".gba">
               <label class="button-secondary" for="initial-save"><span aria-hidden="true">↑</span> Elegir partida</label>
               <input id="initial-save" class="file-input" type="file" accept=".sav,.srm,.dsv,.dat,.eep,.fla">
             </div>
+            <p id="rom-message" class="launch-footnote" role="status" aria-live="polite" hidden></p>
             <div id="selected-save" class="selected-save" hidden>
               <span class="selected-save-name"></span>
               <button id="load-game" class="button-primary" type="button">Iniciar con esta partida <span aria-hidden="true">→</span></button>

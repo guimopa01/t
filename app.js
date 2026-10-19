@@ -23,13 +23,18 @@ const loadingHint = document.querySelector('#loading-hint');
 const loadingProgress = document.querySelector('.loading-progress');
 const loadingProgressBar = document.querySelector('.loading-progress-bar');
 const initialSaveInput = document.querySelector('#initial-save');
+const romFileInput = document.querySelector('#rom-file');
+const romFileLabel = document.querySelector('#rom-file-label');
+const romMessage = document.querySelector('#rom-message');
 const runtimeSaveInput = document.querySelector('#runtime-save');
 const selectedSave = document.querySelector('#selected-save');
 const saveLabel = document.querySelector('.selected-save-name');
 let activeFilter = 'all';
 let activeGame = null;
+let activeRomObjectUrl = null;
 let queuedSave = null;
 let emulatorScriptLoading = false;
+let romCheckInProgress = false;
 let launchSequence = 0;
 let loadingHintTimeout = null;
 let loadingTimeInterval = null;
@@ -83,6 +88,11 @@ function setFilter(filter) {
 function openGame(game) {
   activeGame = game;
   queuedSave = null;
+  romMessage.hidden = true;
+  romMessage.textContent = '';
+  romFileInput.value = '';
+  romFileInput.accept = game.system === 'gba' ? '.gba' : '.nds';
+  romFileLabel.innerHTML = `<span aria-hidden="true">▣</span> Elegir cartucho ${game.system.toUpperCase()}`;
   document.querySelector('#player-title').textContent = game.title;
   document.querySelector('#player-system').textContent = game.system === 'gba' ? 'GAME BOY ADVANCE' : 'NINTENDO DS';
   initialSaveInput.value = '';
@@ -113,6 +123,8 @@ function closeGame() {
   window.removeEventListener('error', captureStartupWindowError);
   window.removeEventListener('unhandledrejection', captureStartupRejection);
   dialog.close();
+  if (activeRomObjectUrl) URL.revokeObjectURL(activeRomObjectUrl);
+  activeRomObjectUrl = null;
   if (typeof manager?.saveSaveFiles === 'function') {
     try {
       const result = manager.saveSaveFiles();
@@ -262,8 +274,18 @@ function retryWithLegacyCore(thisLaunch, details) {
     const pendingSave = queuedSave;
     gameContainer.replaceChildren();
     window.EJS_emulator = undefined;
-    launchGame(pendingSave, true);
+    launchGame(pendingSave, true, activeRomObjectUrl).catch(reportLaunchFailure);
   }, 1200);
+}
+
+function reportLaunchFailure(error) {
+  console.error('No se pudo iniciar el cartucho.', error);
+  if (!playPanel.hidden) {
+    showMessage(`No se pudo iniciar el cartucho: ${describeStartupError(error)}`);
+  } else {
+    romMessage.textContent = `No se pudo iniciar el cartucho: ${describeStartupError(error)}`;
+    romMessage.hidden = false;
+  }
 }
 
 function bypassEmptyCheatReset() {
@@ -381,11 +403,48 @@ function forceWebGL2Preference(game) {
   }
 }
 
-function launchGame(saveFile = null, forceLegacy = false) {
+async function isGitLfsPointer(game) {
+  const romUrl = new URL(`./${encodeURIComponent(game.file)}`, document.baseURI);
+  const response = await fetch(romUrl, { method: 'HEAD', cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`El servidor devolvió HTTP ${response.status} al comprobar el cartucho.`);
+  }
+
+  const contentLength = Number(response.headers.get('content-length'));
+  if (!Number.isFinite(contentLength) || contentLength > 256) return false;
+
+  const pointerResponse = await fetch(romUrl, { cache: 'no-store' });
+  if (!pointerResponse.ok) {
+    throw new Error(`El servidor devolvió HTTP ${pointerResponse.status} al leer el cartucho.`);
+  }
+  const pointer = await pointerResponse.text();
+  return pointer.startsWith('version https://git-lfs.github.com/spec/v1');
+}
+
+async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
   if (!activeGame) return;
+  if (romCheckInProgress) return;
   if (emulatorScriptLoading) {
     showNotice('El emulador todavía se está conectando. Espera un momento e inténtalo de nuevo.');
     return;
+  }
+  if (!romUrl && !forceLegacy) {
+    romCheckInProgress = true;
+    romMessage.hidden = true;
+    try {
+      if (await isGitLfsPointer(activeGame)) {
+        romMessage.textContent = 'GitHub Pages solo entrega aquí una referencia Git LFS, no el cartucho. Selecciona el archivo .gba o .nds original desde tu dispositivo para jugar.';
+        romMessage.hidden = false;
+        return;
+      }
+    } catch (error) {
+      console.error('No se pudo comprobar el cartucho publicado.', error);
+      romMessage.textContent = `No se pudo comprobar el cartucho publicado: ${error.message} Selecciona el archivo original desde tu dispositivo.`;
+      romMessage.hidden = false;
+      return;
+    } finally {
+      romCheckInProgress = false;
+    }
   }
   const thisLaunch = ++launchSequence;
   clearTimeout(legacyRetryTimeout);
@@ -419,7 +478,7 @@ function launchGame(saveFile = null, forceLegacy = false) {
 
   window.EJS_player = '#game';
   window.EJS_core = activeGame.system === 'gba' ? 'gba' : 'melonds';
-  window.EJS_gameUrl = `./${encodeURIComponent(activeGame.file)}`;
+  window.EJS_gameUrl = romUrl || `./${encodeURIComponent(activeGame.file)}`;
   window.EJS_gameName = activeGame.title;
   window.EJS_gameID = 1;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/4.2.3/data/';
@@ -507,7 +566,28 @@ grid.addEventListener('keydown', (event) => {
     openGame(games[Number(event.target.dataset.game)]);
   }
 });
-document.querySelector('#new-game').addEventListener('click', () => launchGame());
+document.querySelector('#new-game').addEventListener('click', () => {
+  launchGame().catch(reportLaunchFailure);
+});
+romFileInput.addEventListener('change', () => {
+  const file = romFileInput.files[0];
+  romFileInput.value = '';
+  if (!file || !activeGame) return;
+
+  const extension = file.name.split('.').pop().toLocaleLowerCase('en');
+  const expectedExtension = activeGame.system;
+  if (extension !== expectedExtension) {
+    romMessage.textContent = `Este juego necesita un archivo .${expectedExtension}; el archivo seleccionado es .${extension}.`;
+    romMessage.hidden = false;
+    return;
+  }
+
+  if (activeRomObjectUrl) URL.revokeObjectURL(activeRomObjectUrl);
+  activeRomObjectUrl = URL.createObjectURL(file);
+  romMessage.textContent = `Cartucho seleccionado: ${file.name}`;
+  romMessage.hidden = false;
+  launchGame(queuedSave, false, activeRomObjectUrl).catch(reportLaunchFailure);
+});
 initialSaveInput.addEventListener('change', () => {
   queuedSave = initialSaveInput.files[0] || null;
   if (!queuedSave) return;
