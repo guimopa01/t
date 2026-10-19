@@ -1,15 +1,6 @@
-const games = [
-  { title: 'Pokémon Mystery Dungeon: Red Rescue Team', file: '2567 - Pokemon Mystery Dungeon - Red Rescue Team (E)(Rising Sun).gba', system: 'gba', mark: '✳', palette: 'palette-1' },
-  { title: 'Pokémon Platino', file: '3787 - Pokemon - Edicion Platino (Spain).nds', system: 'nds', mark: '✦', palette: 'palette-2' },
-  { title: 'Pokémon SoulSilver', file: '4833 - Pokemon - Edicion Plata SoulSilver (Spain).nds', system: 'nds', mark: '◌', palette: 'palette-3' },
-  { title: 'Pokémon Negra', file: '5597 - Pokemon - Edicion Negra (DSi Enhanced) (S)(WiKiLEAKS).nds', system: 'nds', mark: '✦', palette: 'palette-4' },
-  { title: 'Pokémon Rojo Fuego', file: 'Pokemon - Edicion Rojo Fuego (Spain).gba', system: 'gba', mark: '✹', palette: 'palette-5' },
-  { title: 'Pokémon Emerald', file: 'Pokemon - Emerald Version (USA, Europe).gba', system: 'gba', mark: '✳', palette: 'palette-6' },
-  { title: 'Pokémon Quetzal', file: 'PokemonQuetzalSpanishAlpha8v2.gba', system: 'gba', mark: '✦', palette: 'palette-2' },
-  { title: 'Pokémon Blanco 2', file: 'Pokémon Blanco2.nds', system: 'nds', mark: '◉', palette: 'palette-1' },
-  { title: 'Pokémon Glazed+', file: 'Pokémon Glazed+.gba', system: 'gba', mark: '✹', palette: 'palette-4' },
-  { title: 'Pokémon Negra 2', file: 'z120 - Pokemon - Edicion Negra 2 (Spain) (NDSi Enhanced) [b].nds', system: 'nds', mark: '◌', palette: 'palette-3' },
-  { title: 'Light Platinum', file: 'LightPlatinumEspPATCHED.gba', system: 'gba', mark: '✳', palette: 'palette-6' },
+const systems = [
+  { system: 'gba', title: 'Juegos Game Boy Advance', description: 'Cartuchos .gba · núcleo mGBA', mark: '✳', palette: 'palette-1' },
+  { system: 'nds', title: 'Juegos Nintendo DS', description: 'Cartuchos .nds · núcleo melonDS', mark: '◉', palette: 'palette-2' },
 ];
 
 const grid = document.querySelector('#game-grid');
@@ -26,15 +17,12 @@ const initialSaveInput = document.querySelector('#initial-save');
 const romFileInput = document.querySelector('#rom-file');
 const romFileLabel = document.querySelector('#rom-file-label');
 const romMessage = document.querySelector('#rom-message');
-const runtimeSaveInput = document.querySelector('#runtime-save');
-const selectedSave = document.querySelector('#selected-save');
-const saveLabel = document.querySelector('.selected-save-name');
-let activeFilter = 'all';
+const selectedCartridge = document.querySelector('#selected-cartridge');
+const selectedRomName = document.querySelector('#selected-rom-name');
 let activeGame = null;
 let activeRomObjectUrl = null;
 let queuedSave = null;
 let emulatorScriptLoading = false;
-let romCheckInProgress = false;
 let launchSequence = 0;
 let loadingHintTimeout = null;
 let loadingTimeInterval = null;
@@ -52,51 +40,37 @@ function displayName(filename) {
 }
 
 function renderGames() {
-  const query = document.querySelector('#search').value.trim().toLocaleLowerCase('es');
-  const visibleGames = games.filter((game) => {
-    const matchesFilter = activeFilter === 'all' || game.system === activeFilter;
-    return matchesFilter && `${game.title} ${game.file}`.toLocaleLowerCase('es').includes(query);
-  });
-
-  grid.innerHTML = visibleGames.map((game, index) => `
-    <article class="game-card" tabindex="0" role="button" aria-label="Abrir ${game.title}" data-game="${games.indexOf(game)}" style="animation-delay:${Math.min(index * 35, 280)}ms">
-      <div class="game-art ${game.system} ${game.palette}">
-        <span class="art-code">SR—${String(games.indexOf(game) + 1).padStart(3, '0')}</span>
+  grid.innerHTML = systems.map((system, index) => `
+    <article class="game-card" tabindex="0" role="button" aria-label="Abrir ${system.title}" data-system="${system.system}" style="animation-delay:${index * 50}ms">
+      <div class="game-art ${system.system} ${system.palette}">
+        <span class="art-code">SR—${String(index + 1).padStart(3, '0')}</span>
         <span class="art-sun" aria-hidden="true"></span>
-        <span class="art-symbol" aria-hidden="true">${game.mark}</span>
-        <span class="art-system">${game.system.toUpperCase()}</span>
+        <span class="art-symbol" aria-hidden="true">${system.mark}</span>
+        <span class="art-system">${system.system.toUpperCase()}</span>
       </div>
       <div class="game-meta">
-        <div><h3 class="game-title">${game.title}</h3><p class="game-filename">${displayName(game.file)}</p></div>
+        <div><h3 class="game-title">${system.title}</h3><p class="game-filename">${system.description}</p></div>
         <span class="card-arrow" aria-hidden="true">↗</span>
       </div>
     </article>`).join('');
-
-  document.querySelector('#empty-state').hidden = visibleGames.length !== 0;
 }
 
-function setFilter(filter) {
-  activeFilter = filter;
-  document.querySelectorAll('.filter-tab').forEach((button) => {
-    const selected = button.dataset.filter === filter;
-    button.classList.toggle('is-active', selected);
-    button.setAttribute('aria-pressed', String(selected));
-  });
-  renderGames();
-}
-
-function openGame(game) {
-  activeGame = game;
+function openGame(system) {
+  if (activeRomObjectUrl) URL.revokeObjectURL(activeRomObjectUrl);
+  activeRomObjectUrl = null;
+  activeGame = { system: system.system, title: system.title, file: '' };
   queuedSave = null;
   romMessage.hidden = true;
   romMessage.textContent = '';
   romFileInput.value = '';
-  romFileInput.accept = game.system === 'gba' ? '.gba' : '.nds';
-  romFileLabel.innerHTML = `<span aria-hidden="true">▣</span> Elegir cartucho ${game.system.toUpperCase()}`;
-  document.querySelector('#player-title').textContent = game.title;
-  document.querySelector('#player-system').textContent = game.system === 'gba' ? 'GAME BOY ADVANCE' : 'NINTENDO DS';
+  romFileInput.accept = system.system === 'gba' ? '.gba' : '.nds';
+  romFileLabel.innerHTML = `<span aria-hidden="true">▣</span> Elegir cartucho ${system.system.toUpperCase()}`;
+  document.querySelector('#rom-extension').textContent = system.system === 'gba' ? '.gba' : '.nds';
+  document.querySelector('#player-title').textContent = system.title;
+  document.querySelector('#player-system').textContent = system.system === 'gba' ? 'GAME BOY ADVANCE' : 'NINTENDO DS';
   initialSaveInput.value = '';
-  selectedSave.hidden = true;
+  selectedCartridge.hidden = true;
+  selectedRomName.textContent = '';
   launchPanel.hidden = false;
   playPanel.hidden = true;
   legacyRetryAttempted = false;
@@ -159,8 +133,6 @@ function showNotice(message) {
 
 function setSaveControlsEnabled(enabled) {
   document.querySelector('#export-save').disabled = !enabled;
-  runtimeSaveInput.disabled = !enabled;
-  document.querySelector('#runtime-save-label').classList.toggle('is-disabled', !enabled);
 }
 
 function formatElapsedTime(milliseconds) {
@@ -403,48 +375,17 @@ function forceWebGL2Preference(game) {
   }
 }
 
-async function isGitLfsPointer(game) {
-  const romUrl = new URL(`./${encodeURIComponent(game.file)}`, document.baseURI);
-  const response = await fetch(romUrl, { method: 'HEAD', cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(`El servidor devolvió HTTP ${response.status} al comprobar el cartucho.`);
-  }
-
-  const contentLength = Number(response.headers.get('content-length'));
-  if (!Number.isFinite(contentLength) || contentLength > 256) return false;
-
-  const pointerResponse = await fetch(romUrl, { cache: 'no-store' });
-  if (!pointerResponse.ok) {
-    throw new Error(`El servidor devolvió HTTP ${pointerResponse.status} al leer el cartucho.`);
-  }
-  const pointer = await pointerResponse.text();
-  return pointer.startsWith('version https://git-lfs.github.com/spec/v1');
-}
-
 async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
   if (!activeGame) return;
-  if (romCheckInProgress) return;
+  const selectedRomUrl = romUrl || activeRomObjectUrl;
+  if (!selectedRomUrl || !activeGame.file) {
+    romMessage.textContent = 'Primero elige el cartucho que quieres jugar.';
+    romMessage.hidden = false;
+    return;
+  }
   if (emulatorScriptLoading) {
     showNotice('El emulador todavía se está conectando. Espera un momento e inténtalo de nuevo.');
     return;
-  }
-  if (!romUrl && !forceLegacy) {
-    romCheckInProgress = true;
-    romMessage.hidden = true;
-    try {
-      if (await isGitLfsPointer(activeGame)) {
-        romMessage.textContent = 'GitHub Pages solo entrega aquí una referencia Git LFS, no el cartucho. Selecciona el archivo .gba o .nds original desde tu dispositivo para jugar.';
-        romMessage.hidden = false;
-        return;
-      }
-    } catch (error) {
-      console.error('No se pudo comprobar el cartucho publicado.', error);
-      romMessage.textContent = `No se pudo comprobar el cartucho publicado: ${error.message} Selecciona el archivo original desde tu dispositivo.`;
-      romMessage.hidden = false;
-      return;
-    } finally {
-      romCheckInProgress = false;
-    }
   }
   const thisLaunch = ++launchSequence;
   clearTimeout(legacyRetryTimeout);
@@ -478,7 +419,7 @@ async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
 
   window.EJS_player = '#game';
   window.EJS_core = activeGame.system === 'gba' ? 'gba' : 'melonds';
-  window.EJS_gameUrl = romUrl || `./${encodeURIComponent(activeGame.file)}`;
+  window.EJS_gameUrl = selectedRomUrl;
   window.EJS_gameName = activeGame.title;
   window.EJS_gameID = 1;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/4.2.3/data/';
@@ -515,7 +456,6 @@ async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
     if (pending) await importSave(pending);
   };
   window.EJS_onSaveSave = (event) => downloadSave(event?.save);
-  window.EJS_onLoadSave = () => runtimeSaveInput.click();
 
   const script = document.createElement('script');
   script.src = `${window.EJS_pathtodata}loader.js`;
@@ -548,26 +488,23 @@ async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
   document.body.append(script);
 }
 
-document.querySelector('#collection-count').textContent = String(games.length).padStart(2, '0');
-document.querySelector('#all-count').textContent = String(games.length).padStart(2, '0');
-document.querySelector('#gba-count').textContent = String(games.filter((game) => game.system === 'gba').length).padStart(2, '0');
-document.querySelector('#nds-count').textContent = String(games.filter((game) => game.system === 'nds').length).padStart(2, '0');
+document.querySelector('#collection-count').textContent = String(systems.length).padStart(2, '0');
 renderGames();
 
-document.querySelectorAll('.filter-tab').forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.filter)));
-document.querySelector('#search').addEventListener('input', renderGames);
 grid.addEventListener('click', (event) => {
   const card = event.target.closest('.game-card');
-  if (card) openGame(games[Number(card.dataset.game)]);
+  const system = systems.find((entry) => entry.system === card?.dataset.system);
+  if (system) openGame(system);
 });
 grid.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.game-card')) {
     event.preventDefault();
-    openGame(games[Number(event.target.dataset.game)]);
+    const system = systems.find((entry) => entry.system === event.target.dataset.system);
+    if (system) openGame(system);
   }
 });
 document.querySelector('#new-game').addEventListener('click', () => {
-  launchGame().catch(reportLaunchFailure);
+  launchGame(null, false, activeRomObjectUrl).catch(reportLaunchFailure);
 });
 romFileInput.addEventListener('change', async () => {
   const file = romFileInput.files[0];
@@ -598,27 +535,29 @@ romFileInput.addEventListener('change', async () => {
     }
   }
 
-  startSelectedRom(file);
-});
-
-function startSelectedRom(file) {
   if (activeRomObjectUrl) URL.revokeObjectURL(activeRomObjectUrl);
   activeRomObjectUrl = URL.createObjectURL(file);
-  romMessage.textContent = `Cartucho seleccionado: ${file.name}`;
+  activeGame.file = file.name;
+  activeGame.title = displayName(file.name);
+  document.querySelector('#player-title').textContent = activeGame.title;
+  selectedRomName.textContent = `Cartucho: ${file.name}`;
+  selectedCartridge.hidden = false;
+  romMessage.textContent = 'Cartucho listo. Elige nueva partida o carga un guardado.';
   romMessage.hidden = false;
-  launchGame(queuedSave, false, activeRomObjectUrl).catch(reportLaunchFailure);
-}
-initialSaveInput.addEventListener('change', () => {
-  queuedSave = initialSaveInput.files[0] || null;
-  if (!queuedSave) return;
-  saveLabel.textContent = queuedSave.name;
-  selectedSave.hidden = false;
 });
-document.querySelector('#load-game').addEventListener('click', () => launchGame(queuedSave));
-runtimeSaveInput.addEventListener('change', () => {
-  const file = runtimeSaveInput.files[0];
-  if (file) importSave(file);
-  runtimeSaveInput.value = '';
+initialSaveInput.addEventListener('change', () => {
+  const file = initialSaveInput.files[0] || null;
+  initialSaveInput.value = '';
+  if (!file || !activeGame || !activeRomObjectUrl) return;
+  launchGame(file, false, activeRomObjectUrl).catch(reportLaunchFailure);
+});
+document.querySelector('#load-game').addEventListener('click', () => {
+  if (!activeRomObjectUrl) {
+    romMessage.textContent = 'Primero elige el cartucho que quieres jugar.';
+    romMessage.hidden = false;
+    return;
+  }
+  initialSaveInput.click();
 });
 document.querySelector('#export-save').addEventListener('click', () => {
   const manager = window.EJS_emulator?.gameManager;
@@ -640,10 +579,4 @@ dialog.addEventListener('click', (event) => {
 dialog.addEventListener('cancel', (event) => {
   event.preventDefault();
   closeGame();
-});
-document.addEventListener('keydown', (event) => {
-  if (event.key === '/' && !dialog.open && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-    event.preventDefault();
-    document.querySelector('#search').focus();
-  }
 });

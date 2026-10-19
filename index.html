@@ -27,12 +27,12 @@
         <div class="intro-copy">
           <p class="eyebrow"><span>01</span> COLECCIÓN PERSONAL</p>
           <h1 id="page-title">Elige tu<br><span>próxima partida.</span></h1>
-          <p class="intro-description">Un pequeño archivo de aventuras portátiles. Elige un cartucho y vuelve justo donde lo dejaste.</p>
+          <p class="intro-description">Elige el tipo de consola y carga un cartucho desde tu dispositivo para empezar.</p>
         </div>
         <aside class="collection-stamp" aria-label="Resumen de la colección">
-          <span class="stamp-label">EN LA ESTANTERÍA</span>
-          <strong id="collection-count">00</strong>
-          <span class="stamp-caption">JUEGOS · GBA + NDS</span>
+          <span class="stamp-label">SISTEMAS</span>
+          <strong id="collection-count">02</strong>
+          <span class="stamp-caption">GBA · NINTENDO DS</span>
           <span class="stamp-orbit" aria-hidden="true"></span>
         </aside>
         <div class="intro-index" aria-hidden="true">SR—001<br>PRESS START</div>
@@ -41,28 +41,12 @@
       <section class="library" aria-labelledby="library-title">
         <div class="library-heading">
           <div>
-            <p class="eyebrow"><span>02</span> EXPLORAR</p>
-            <h2 id="library-title">La estantería</h2>
+            <p class="eyebrow"><span>02</span> ELEGIR CONSOLA</p>
+            <h2 id="library-title">¿Qué quieres jugar?</h2>
           </div>
-          <label class="search-box">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <span class="sr-only">Buscar juego</span>
-            <input id="search" type="search" placeholder="Buscar en la colección" autocomplete="off">
-            <kbd>/</kbd>
-          </label>
-        </div>
-
-        <div class="library-tools">
-          <div class="filter-tabs" role="group" aria-label="Filtrar por sistema">
-            <button class="filter-tab is-active" type="button" data-filter="all" aria-pressed="true">Todo <span id="all-count">00</span></button>
-            <button class="filter-tab" type="button" data-filter="gba" aria-pressed="false">Game Boy Advance <span id="gba-count">00</span></button>
-            <button class="filter-tab" type="button" data-filter="nds" aria-pressed="false">Nintendo DS <span id="nds-count">00</span></button>
-          </div>
-          <span class="sort-label">ORDEN: A—Z <span aria-hidden="true">↕</span></span>
         </div>
 
         <div id="game-grid" class="game-grid" aria-live="polite"></div>
-        <p id="empty-state" class="empty-state" hidden>No hay juegos que coincidan con tu búsqueda.</p>
       </section>
     </main>
 
@@ -91,21 +75,22 @@
           <div class="launch-art" aria-hidden="true"><span class="launch-art-index">SR<br>PLAY</span><span class="launch-art-cross">✳</span></div>
           <div class="launch-copy">
             <p class="eyebrow"><span>03</span> PREPARAR SESIÓN</p>
-            <h3 id="launch-title">¿Cómo quieres<br>empezar?</h3>
-            <p class="launch-description">Tu partida se conserva en este navegador. También puedes importar un archivo compatible.</p>
+            <h3 id="launch-title">Elige un cartucho</h3>
+            <p class="launch-description">Selecciona un archivo <span id="rom-extension">.gba</span> de tu dispositivo. Después podrás iniciar una partida nueva o importar un guardado.</p>
             <div class="launch-actions">
-              <button id="new-game" class="button-primary" type="button"><span aria-hidden="true">▶</span> Nueva partida</button>
               <label id="rom-file-label" class="button-secondary" for="rom-file"><span aria-hidden="true">▣</span> Elegir cartucho</label>
               <input id="rom-file" class="file-input" type="file" accept=".gba">
-              <label class="button-secondary" for="initial-save"><span aria-hidden="true">↑</span> Elegir partida</label>
-              <input id="initial-save" class="file-input" type="file" accept=".sav,.srm,.dsv,.dat,.eep,.fla">
             </div>
             <p id="rom-message" class="launch-footnote" role="status" aria-live="polite" hidden></p>
-            <div id="selected-save" class="selected-save" hidden>
-              <span class="selected-save-name"></span>
-              <button id="load-game" class="button-primary" type="button">Iniciar con esta partida <span aria-hidden="true">→</span></button>
+            <div id="selected-cartridge" class="selected-save" hidden>
+              <span id="selected-rom-name" class="selected-save-name"></span>
+              <div class="launch-actions">
+                <button id="new-game" class="button-primary" type="button"><span aria-hidden="true">▶</span> Nueva partida</button>
+                <button id="load-game" class="button-secondary" type="button"><span aria-hidden="true">↑</span> Cargar partida</button>
+                <input id="initial-save" class="file-input" type="file" accept=".sav,.srm,.dsv,.dat,.eep,.fla">
+              </div>
             </div>
-            <p class="launch-footnote">Los archivos de guardado no son universales; utiliza uno del mismo juego y sistema.</p>
+            <p class="launch-footnote">El juego y el guardado se cargan desde tu dispositivo y se quedan en tu navegador.</p>
           </div>
         </section>
 
@@ -125,10 +110,7 @@
           <div class="play-toolbar">
             <div class="play-toolbar-note"><span class="status-dot"></span><span id="session-status">SESIÓN ACTIVA</span></div>
             <div class="save-actions">
-              <span class="save-help">Puedes cargar otra partida después de iniciar.</span>
               <button id="export-save" class="save-button" type="button" disabled><span aria-hidden="true">↓</span> Guardar partida</button>
-              <label id="runtime-save-label" class="save-button is-disabled" for="runtime-save" title="Importa un archivo de guardado en esta sesión"><span aria-hidden="true">↑</span> Cargar partida</label>
-              <input id="runtime-save" class="file-input" type="file" accept=".sav,.srm,.dsv,.dat,.eep,.fla" disabled>
             </div>
           </div>
           <p id="player-message" class="player-message" role="status" aria-live="polite"></p>
