@@ -164,7 +164,7 @@ function updateEmulatorLoading(thisLaunch) {
     emulatorLoading.classList.add('has-error');
     document.querySelector('#session-status').textContent = 'ERROR DE CARGA';
     loadingStatus.textContent = `ERROR: ${error.textContent.trim()}`;
-    loadingHint.textContent = 'Comprueba la conexión y que el cartucho esté disponible en el servidor.';
+    loadingHint.textContent = 'El núcleo no pudo arrancar. Recarga la página y, si persiste, comprueba la consola del navegador para ver el error detallado.';
     loadingHint.hidden = false;
     return;
   }
@@ -282,6 +282,7 @@ function launchGame(saveFile = null) {
   window.EJS_gameName = activeGame.title;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
   window.EJS_startOnLoaded = true;
+  window.EJS_forceLegacyCores = true;
   window.EJS_onGameStart = async () => {
     if (launchSequence !== thisLaunch || !dialog.open) return;
     clearTimeout(loadingHintTimeout);
@@ -318,7 +319,7 @@ function launchGame(saveFile = null) {
     emulatorLoadingObserver = null;
     emulatorLoading.classList.add('has-error');
     loadingStatus.textContent = 'NO SE PUDO CARGAR EL EMULADOR';
-    loadingHint.textContent = 'Comprueba la conexión con EmulatorJS e inténtalo de nuevo.';
+    loadingHint.textContent = 'No se pudo descargar EmulatorJS. Comprueba la conexión e inténtalo de nuevo.';
     loadingHint.hidden = false;
     document.querySelector('#session-status').textContent = 'ERROR DE CONEXIÓN';
     showMessage('No se pudo cargar EmulatorJS. Comprueba tu conexión y vuelve a abrir el juego.');
