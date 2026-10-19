@@ -37,6 +37,9 @@ let emulatorLoadingObserver = null;
 let restoreEmulatorConsoleWarning = null;
 let startupErrorDetails = '';
 let startupErrorSequence = null;
+let legacyRetryTimeout = null;
+let legacyRetryAttempted = false;
+let currentLaunchUsesLegacy = false;
 let noticeTimeout = null;
 
 function displayName(filename) {
@@ -86,6 +89,7 @@ function openGame(game) {
   selectedSave.hidden = true;
   launchPanel.hidden = false;
   playPanel.hidden = true;
+  legacyRetryAttempted = false;
   setSaveControlsEnabled(false);
   loadingHint.hidden = true;
   document.querySelector('#player-message').textContent = '';
@@ -97,12 +101,15 @@ function closeGame() {
   const manager = window.EJS_emulator?.gameManager;
   launchSequence += 1;
   clearTimeout(loadingHintTimeout);
+  clearTimeout(legacyRetryTimeout);
   clearInterval(loadingTimeInterval);
   emulatorLoadingObserver?.disconnect();
   emulatorLoadingObserver = null;
   restoreEmulatorConsoleWarning?.();
   restoreEmulatorConsoleWarning = null;
   startupErrorSequence = null;
+  legacyRetryTimeout = null;
+  currentLaunchUsesLegacy = false;
   window.removeEventListener('error', captureStartupWindowError);
   window.removeEventListener('unhandledrejection', captureStartupRejection);
   dialog.close();
@@ -176,6 +183,7 @@ function updateEmulatorLoading(thisLaunch) {
       ? `Detalle técnico: ${startupErrorDetails}`
       : 'No se pudo arrancar el núcleo. Revisa la conexión con EmulatorJS e inténtalo otra vez.';
     loadingHint.hidden = false;
+    retryWithLegacyCore(thisLaunch, error.textContent.trim());
     return;
   }
 
@@ -226,6 +234,30 @@ function showStartupErrorDetails(error) {
   loadingStatus.textContent = 'ERROR AL INICIAR EL JUEGO';
   loadingHint.textContent = `Detalle técnico: ${startupErrorDetails}`;
   loadingHint.hidden = false;
+  retryWithLegacyCore(launchSequence, startupErrorDetails);
+}
+
+function retryWithLegacyCore(thisLaunch, details) {
+  if (
+    legacyRetryAttempted
+    || currentLaunchUsesLegacy
+    || !/RuntimeError|Aborted|table index|WebAssembly|wasm/i.test(details)
+    || launchSequence !== thisLaunch
+    || !dialog.open
+  ) return;
+
+  legacyRetryAttempted = true;
+  loadingStatus.textContent = 'REINTENTANDO EN MODO COMPATIBLE';
+  loadingHint.textContent = 'El núcleo gráfico actual falló. Se probará una variante compatible.';
+  loadingHint.hidden = false;
+  showMessage('Reintentando una vez con el núcleo gráfico compatible.');
+  legacyRetryTimeout = setTimeout(() => {
+    if (launchSequence !== thisLaunch || !dialog.open) return;
+    const pendingSave = queuedSave;
+    gameContainer.replaceChildren();
+    window.EJS_emulator = undefined;
+    launchGame(pendingSave, true);
+  }, 1200);
 }
 
 function captureStartupWindowError(event) {
@@ -299,13 +331,47 @@ async function importSave(file) {
   }
 }
 
-function launchGame(saveFile = null) {
+function forceWebGL2Preference(game) {
+  const settingsKey = `ejs-1-${game.system}-${game.title}-settings`;
+  let storedSettings;
+  try {
+    storedSettings = localStorage.getItem(settingsKey);
+  } catch (error) {
+    console.error('No se pudo leer la preferencia gráfica guardada.', error);
+    showNotice('No se pudo actualizar la preferencia WebGL 2 guardada en este navegador.');
+    return;
+  }
+  if (!storedSettings) return;
+
+  let savedConfig;
+  try {
+    savedConfig = JSON.parse(storedSettings);
+  } catch (error) {
+    console.warn('La configuración guardada de EmulatorJS no es válida; se usará la preferencia predeterminada.', error);
+    return;
+  }
+  if (!savedConfig?.settings || typeof savedConfig.settings !== 'object' || Array.isArray(savedConfig.settings)) return;
+  if (savedConfig.settings.webgl2Enabled === 'enabled') return;
+
+  savedConfig.settings.webgl2Enabled = 'enabled';
+  try {
+    localStorage.setItem(settingsKey, JSON.stringify(savedConfig));
+  } catch (error) {
+    console.error('No se pudo guardar la preferencia WebGL 2.', error);
+    showNotice('No se pudo guardar la preferencia WebGL 2 en este navegador.');
+  }
+}
+
+function launchGame(saveFile = null, forceLegacy = false) {
   if (!activeGame) return;
   if (emulatorScriptLoading) {
     showNotice('El emulador todavía se está conectando. Espera un momento e inténtalo de nuevo.');
     return;
   }
   const thisLaunch = ++launchSequence;
+  clearTimeout(legacyRetryTimeout);
+  legacyRetryTimeout = null;
+  currentLaunchUsesLegacy = forceLegacy;
   queuedSave = saveFile;
   launchPanel.hidden = true;
   playPanel.hidden = false;
@@ -336,9 +402,12 @@ function launchGame(saveFile = null) {
   window.EJS_core = activeGame.system === 'gba' ? 'gba' : 'melonds';
   window.EJS_gameUrl = `./${encodeURIComponent(activeGame.file)}`;
   window.EJS_gameName = activeGame.title;
+  window.EJS_gameID = 1;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/4.2.3/data/';
   window.EJS_startOnLoaded = true;
-  window.EJS_defaultOptions = { webgl2Enabled: 'enabled' };
+  window.EJS_forceLegacyCores = forceLegacy;
+  window.EJS_defaultOptions = { webgl2Enabled: forceLegacy ? 'disabled' : 'enabled' };
+  if (!forceLegacy) forceWebGL2Preference(activeGame);
   startupErrorDetails = '';
   startupErrorSequence = thisLaunch;
   window.removeEventListener('error', captureStartupWindowError);
