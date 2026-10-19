@@ -336,7 +336,7 @@ function launchGame(saveFile = null) {
   window.EJS_core = activeGame.system === 'gba' ? 'gba' : 'melonds';
   window.EJS_gameUrl = `./${encodeURIComponent(activeGame.file)}`;
   window.EJS_gameName = activeGame.title;
-  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/4.2.3/data/';
   window.EJS_startOnLoaded = true;
   startupErrorDetails = '';
   startupErrorSequence = thisLaunch;
