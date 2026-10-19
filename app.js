@@ -35,6 +35,8 @@ let loadingHintTimeout = null;
 let loadingTimeInterval = null;
 let emulatorLoadingObserver = null;
 let restoreEmulatorConsoleWarning = null;
+let startupErrorDetails = '';
+let startupErrorSequence = null;
 let noticeTimeout = null;
 
 function displayName(filename) {
@@ -100,6 +102,9 @@ function closeGame() {
   emulatorLoadingObserver = null;
   restoreEmulatorConsoleWarning?.();
   restoreEmulatorConsoleWarning = null;
+  startupErrorSequence = null;
+  window.removeEventListener('error', captureStartupWindowError);
+  window.removeEventListener('unhandledrejection', captureStartupRejection);
   dialog.close();
   if (typeof manager?.saveSaveFiles === 'function') {
     try {
@@ -167,7 +172,9 @@ function updateEmulatorLoading(thisLaunch) {
     emulatorLoading.classList.add('has-error');
     document.querySelector('#session-status').textContent = 'ERROR DE CARGA';
     loadingStatus.textContent = `ERROR: ${error.textContent.trim()}`;
-    loadingHint.textContent = 'El núcleo no pudo arrancar. Recarga la página y, si persiste, comprueba la consola del navegador para ver el error detallado.';
+    loadingHint.textContent = startupErrorDetails
+      ? `Detalle técnico: ${startupErrorDetails}`
+      : 'No se pudo arrancar el núcleo. Revisa la conexión con EmulatorJS e inténtalo otra vez.';
     loadingHint.hidden = false;
     return;
   }
@@ -202,6 +209,33 @@ function updateEmulatorLoading(thisLaunch) {
   loadingProgressBar.style.width = `${percent}%`;
 }
 
+function describeStartupError(error) {
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const name = 'name' in error && error.name ? `${error.name}: ` : '';
+    return `${name}${error.message}`;
+  }
+  return String(error || 'EmulatorJS no proporcionó más detalles.');
+}
+
+function showStartupErrorDetails(error) {
+  if (!dialog.open || startupErrorSequence !== launchSequence || !error) return;
+  startupErrorDetails = describeStartupError(error);
+  emulatorLoading.classList.add('has-error');
+  document.querySelector('#session-status').textContent = 'ERROR DE CARGA';
+  loadingStatus.textContent = 'ERROR AL INICIAR EL JUEGO';
+  loadingHint.textContent = `Detalle técnico: ${startupErrorDetails}`;
+  loadingHint.hidden = false;
+}
+
+function captureStartupWindowError(event) {
+  showStartupErrorDetails(event.error || event.message);
+}
+
+function captureStartupRejection(event) {
+  showStartupErrorDetails(event.reason);
+}
+
 function captureEmulatorStartupError() {
   restoreEmulatorConsoleWarning?.();
   const originalWarn = console.warn;
@@ -212,11 +246,8 @@ function captureEmulatorStartupError() {
       : args[0] === 'Failed to start game' ? args[1] : null;
     if (!cause) return;
 
-    const details = cause instanceof Error
-      ? `${cause.name}: ${cause.message}`
-      : String(cause || 'EmulatorJS no proporcionó más detalles.');
     console.error('Detalle del error al iniciar el cartucho:', cause);
-    showMessage(`Detalle del error: ${details}`);
+    showStartupErrorDetails(cause);
   };
   console.warn = wrappedWarn;
   restoreEmulatorConsoleWarning = () => {
@@ -307,10 +338,19 @@ function launchGame(saveFile = null) {
   window.EJS_gameName = activeGame.title;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
   window.EJS_startOnLoaded = true;
+  startupErrorDetails = '';
+  startupErrorSequence = thisLaunch;
+  window.removeEventListener('error', captureStartupWindowError);
+  window.removeEventListener('unhandledrejection', captureStartupRejection);
+  window.addEventListener('error', captureStartupWindowError);
+  window.addEventListener('unhandledrejection', captureStartupRejection);
   window.EJS_onGameStart = async () => {
     if (launchSequence !== thisLaunch || !dialog.open) return;
     restoreEmulatorConsoleWarning?.();
     restoreEmulatorConsoleWarning = null;
+    startupErrorSequence = null;
+    window.removeEventListener('error', captureStartupWindowError);
+    window.removeEventListener('unhandledrejection', captureStartupRejection);
     clearTimeout(loadingHintTimeout);
     clearInterval(loadingTimeInterval);
     loadingTimeInterval = null;
@@ -340,6 +380,9 @@ function launchGame(saveFile = null) {
     emulatorScriptLoading = false;
     restoreEmulatorConsoleWarning?.();
     restoreEmulatorConsoleWarning = null;
+    startupErrorSequence = null;
+    window.removeEventListener('error', captureStartupWindowError);
+    window.removeEventListener('unhandledrejection', captureStartupRejection);
     if (launchSequence !== thisLaunch || !dialog.open) return;
     clearTimeout(loadingHintTimeout);
     clearInterval(loadingTimeInterval);
