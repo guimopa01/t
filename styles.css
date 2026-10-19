@@ -149,11 +149,14 @@ h2 { margin-bottom: 0; font-size: 30px; line-height: 1.15; font-weight: 600; }
 .loading-progress-bar { width: 38%; height: 100%; display: block; border-radius: inherit; background: var(--green); animation: loading-sweep 1.6s ease-in-out infinite; }
 .loading-progress-bar.is-determinate { animation: none; transform: none; transition: width .15s linear; }
 .loading-time { color: #aeb9aa; font: 10px var(--mono); letter-spacing: 0; }
+.controls-help { margin: 12px 0 0; color: #768271; font-size: 10px; line-height: 1.5; }
 .play-toolbar { min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
 .play-toolbar-note { color: #778276; font-size: 9px; letter-spacing: .06em; }
 .save-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .save-button { min-height: 34px; padding: 0 10px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid #c6cec0; background: transparent; color: #39473b; cursor: pointer; font-size: 10px; }
 .save-button:hover { border-color: #879881; background: #e7eadd; }
+.controls-settings-button { border-color: #879881; background: #e3eacb; color: #293a2d; }
+.controls-settings-button:hover { border-color: #54845d; background: #d3e2ac; }
 .save-button:disabled, .save-button.is-disabled { cursor: not-allowed; opacity: .48; }
 .save-button:disabled:hover, .save-button.is-disabled:hover { border-color: #c6cec0; background: transparent; }
 .save-button span { color: #e97858; font-size: 14px; }

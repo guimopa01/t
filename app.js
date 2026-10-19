@@ -429,6 +429,8 @@ async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
   window.EJS_gameName = activeGame.title;
   window.EJS_gameID = 1;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/4.2.3/data/';
+  window.EJS_language = 'es-ES';
+  window.EJS_disableAutoLang = false;
   window.EJS_startOnLoaded = true;
   window.EJS_forceLegacyCores = forceLegacy;
   window.EJS_defaultOptions = { webgl2Enabled: forceLegacy ? 'disabled' : 'enabled' };
@@ -580,12 +582,12 @@ document.querySelector('#export-save').addEventListener('click', () => {
   }
 });
 document.querySelector('#controls-settings').addEventListener('click', () => {
-  const controlSettingsButton = window.EJS_emulator?.elements?.bottomBar?.gamepad?.[0];
-  if (!(controlSettingsButton instanceof HTMLElement)) {
+  const controlMenu = window.EJS_emulator?.controlMenu;
+  if (!(controlMenu instanceof HTMLElement)) {
     showMessage('Los ajustes de controles todavía no están disponibles. Espera a que termine de iniciar el juego.');
     return;
   }
-  controlSettingsButton.click();
+  controlMenu.style.display = '';
 });
 document.querySelector('#close-player').addEventListener('click', closeGame);
 dialog.addEventListener('click', (event) => {
