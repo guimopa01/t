@@ -34,6 +34,7 @@ let launchSequence = 0;
 let loadingHintTimeout = null;
 let loadingTimeInterval = null;
 let emulatorLoadingObserver = null;
+let restoreEmulatorConsoleWarning = null;
 let noticeTimeout = null;
 
 function displayName(filename) {
@@ -97,6 +98,8 @@ function closeGame() {
   clearInterval(loadingTimeInterval);
   emulatorLoadingObserver?.disconnect();
   emulatorLoadingObserver = null;
+  restoreEmulatorConsoleWarning?.();
+  restoreEmulatorConsoleWarning = null;
   dialog.close();
   if (typeof manager?.saveSaveFiles === 'function') {
     try {
@@ -199,6 +202,28 @@ function updateEmulatorLoading(thisLaunch) {
   loadingProgressBar.style.width = `${percent}%`;
 }
 
+function captureEmulatorStartupError() {
+  restoreEmulatorConsoleWarning?.();
+  const originalWarn = console.warn;
+  const wrappedWarn = (...args) => {
+    originalWarn.apply(console, args);
+    const cause = args[0] instanceof Error
+      ? args[0]
+      : args[0] === 'Failed to start game' ? args[1] : null;
+    if (!cause) return;
+
+    const details = cause instanceof Error
+      ? `${cause.name}: ${cause.message}`
+      : String(cause || 'EmulatorJS no proporcionó más detalles.');
+    console.error('Detalle del error al iniciar el cartucho:', cause);
+    showMessage(`Detalle del error: ${details}`);
+  };
+  console.warn = wrappedWarn;
+  restoreEmulatorConsoleWarning = () => {
+    if (console.warn === wrappedWarn) console.warn = originalWarn;
+  };
+}
+
 function saveBytes(save) {
   if (save instanceof Uint8Array) return save;
   if (save instanceof ArrayBuffer) return new Uint8Array(save);
@@ -282,9 +307,10 @@ function launchGame(saveFile = null) {
   window.EJS_gameName = activeGame.title;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
   window.EJS_startOnLoaded = true;
-  window.EJS_forceLegacyCores = true;
   window.EJS_onGameStart = async () => {
     if (launchSequence !== thisLaunch || !dialog.open) return;
+    restoreEmulatorConsoleWarning?.();
+    restoreEmulatorConsoleWarning = null;
     clearTimeout(loadingHintTimeout);
     clearInterval(loadingTimeInterval);
     loadingTimeInterval = null;
@@ -308,9 +334,12 @@ function launchGame(saveFile = null) {
   emulatorLoadingObserver?.disconnect();
   emulatorLoadingObserver = new MutationObserver(() => updateEmulatorLoading(thisLaunch));
   emulatorLoadingObserver.observe(gameContainer, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+  captureEmulatorStartupError();
   script.onload = () => { emulatorScriptLoading = false; };
   script.onerror = () => {
     emulatorScriptLoading = false;
+    restoreEmulatorConsoleWarning?.();
+    restoreEmulatorConsoleWarning = null;
     if (launchSequence !== thisLaunch || !dialog.open) return;
     clearTimeout(loadingHintTimeout);
     clearInterval(loadingTimeInterval);
