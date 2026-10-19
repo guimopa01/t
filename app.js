@@ -338,6 +338,7 @@ function launchGame(saveFile = null) {
   window.EJS_gameName = activeGame.title;
   window.EJS_pathtodata = 'https://cdn.emulatorjs.org/4.2.3/data/';
   window.EJS_startOnLoaded = true;
+  window.EJS_defaultOptions = { webgl2Enabled: 'enabled' };
   startupErrorDetails = '';
   startupErrorSequence = thisLaunch;
   window.removeEventListener('error', captureStartupWindowError);
