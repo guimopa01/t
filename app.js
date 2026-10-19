@@ -75,6 +75,7 @@ function openGame(system) {
   playPanel.hidden = true;
   legacyRetryAttempted = false;
   setSaveControlsEnabled(false);
+  setControlSettingsEnabled(false);
   loadingHint.hidden = true;
   document.querySelector('#player-message').textContent = '';
   dialog.showModal();
@@ -133,6 +134,10 @@ function showNotice(message) {
 
 function setSaveControlsEnabled(enabled) {
   document.querySelector('#export-save').disabled = !enabled;
+}
+
+function setControlSettingsEnabled(enabled) {
+  document.querySelector('#controls-settings').disabled = !enabled;
 }
 
 function formatElapsedTime(milliseconds) {
@@ -402,6 +407,7 @@ async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
   loadingProgressBar.classList.remove('is-determinate');
   loadingProgressBar.style.removeProperty('width');
   setSaveControlsEnabled(false);
+  setControlSettingsEnabled(false);
   document.querySelector('#session-status').textContent = 'INICIANDO SESIÓN';
   emulatorScriptLoading = true;
   clearTimeout(loadingHintTimeout);
@@ -450,6 +456,7 @@ async function launchGame(saveFile = null, forceLegacy = false, romUrl = null) {
     emulatorLoading.classList.add('is-hidden');
     document.querySelector('#session-status').textContent = 'SESIÓN ACTIVA';
     setSaveControlsEnabled(true);
+    setControlSettingsEnabled(true);
     showMessage('Si la pantalla sigue negra, prueba un navegador actualizado con aceleración gráfica habilitada.');
     const pending = queuedSave;
     queuedSave = null;
@@ -571,6 +578,14 @@ document.querySelector('#export-save').addEventListener('click', () => {
     console.error('No se pudo exportar la partida.', error);
     showMessage('No se pudo exportar la partida. Guarda dentro del juego e inténtalo de nuevo.');
   }
+});
+document.querySelector('#controls-settings').addEventListener('click', () => {
+  const controlSettingsButton = window.EJS_emulator?.elements?.bottomBar?.gamepad?.[0];
+  if (!(controlSettingsButton instanceof HTMLElement)) {
+    showMessage('Los ajustes de controles todavía no están disponibles. Espera a que termine de iniciar el juego.');
+    return;
+  }
+  controlSettingsButton.click();
 });
 document.querySelector('#close-player').addEventListener('click', closeGame);
 dialog.addEventListener('click', (event) => {
