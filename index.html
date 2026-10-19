@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f1f2e9">
+    <meta name="description" content="Tu archivo personal de juegos portátiles, listo para jugar en el navegador.">
+    <title>Save Room | Archivo portátil</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Save Room, inicio">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span>SAVE ROOM<span class="brand-period">.</span></span>
+      </a>
+      <div class="topbar-note"><span class="status-dot"></span> ARCHIVO PORTÁTIL <span class="topbar-divider">/</span> SESIÓN LOCAL</div>
+      <a class="topbar-link" href="README.md">ACERCA DEL ARCHIVO <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="top">
+      <section class="intro" aria-labelledby="page-title">
+        <div class="intro-copy">
+          <p class="eyebrow"><span>01</span> COLECCIÓN PERSONAL</p>
+          <h1 id="page-title">Elige tu<br><span>próxima partida.</span></h1>
+          <p class="intro-description">Un pequeño archivo de aventuras portátiles. Elige un cartucho y vuelve justo donde lo dejaste.</p>
+        </div>
+        <aside class="collection-stamp" aria-label="Resumen de la colección">
+          <span class="stamp-label">EN LA ESTANTERÍA</span>
+          <strong id="collection-count">00</strong>
+          <span class="stamp-caption">JUEGOS · GBA + NDS</span>
+          <span class="stamp-orbit" aria-hidden="true"></span>
+        </aside>
+        <div class="intro-index" aria-hidden="true">SR—001<br>PRESS START</div>
+      </section>
+
+      <section class="library" aria-labelledby="library-title">
+        <div class="library-heading">
+          <div>
+            <p class="eyebrow"><span>02</span> EXPLORAR</p>
+            <h2 id="library-title">La estantería</h2>
+          </div>
+          <label class="search-box">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="sr-only">Buscar juego</span>
+            <input id="search" type="search" placeholder="Buscar en la colección" autocomplete="off">
+            <kbd>/</kbd>
+          </label>
+        </div>
+
+        <div class="library-tools">
+          <div class="filter-tabs" role="group" aria-label="Filtrar por sistema">
+            <button class="filter-tab is-active" type="button" data-filter="all" aria-pressed="true">Todo <span id="all-count">00</span></button>
+            <button class="filter-tab" type="button" data-filter="gba" aria-pressed="false">Game Boy Advance <span id="gba-count">00</span></button>
+            <button class="filter-tab" type="button" data-filter="nds" aria-pressed="false">Nintendo DS <span id="nds-count">00</span></button>
+          </div>
+          <span class="sort-label">ORDEN: A—Z <span aria-hidden="true">↕</span></span>
+        </div>
+
+        <div id="game-grid" class="game-grid" aria-live="polite"></div>
+        <p id="empty-state" class="empty-state" hidden>No hay juegos que coincidan con tu búsqueda.</p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>SAVE ROOM <span class="footer-dot">●</span> HECHO PARA VOLVER</span>
+      <span>GBA / NDS <span class="footer-dot">●</span> GUARDADO EN TU NAVEGADOR</span>
+    </footer>
+
+    <p id="app-notice" class="app-notice" role="status" aria-live="polite" hidden></p>
+
+    <dialog id="player-dialog" class="player-dialog" aria-labelledby="player-title">
+      <div class="dialog-frame">
+        <header class="dialog-header">
+          <a class="brand dialog-brand" href="#top">
+            <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span>SAVE ROOM<span class="brand-period">.</span></span>
+          </a>
+          <div class="dialog-game-heading">
+            <span id="player-system" class="system-label">GBA</span>
+            <h2 id="player-title">Juego</h2>
+          </div>
+          <button id="close-player" class="close-button" type="button" aria-label="Cerrar juego"><span aria-hidden="true">×</span> CERRAR</button>
+        </header>
+
+        <section id="launch-panel" class="launch-panel" aria-labelledby="launch-title">
+          <div class="launch-art" aria-hidden="true"><span class="launch-art-index">SR<br>PLAY</span><span class="launch-art-cross">✳</span></div>
+          <div class="launch-copy">
+            <p class="eyebrow"><span>03</span> PREPARAR SESIÓN</p>
+            <h3 id="launch-title">¿Cómo quieres<br>empezar?</h3>
+            <p class="launch-description">Tu partida se conserva en este navegador. También puedes importar un archivo compatible.</p>
+            <div class="launch-actions">
+              <button id="new-game" class="button-primary" type="button"><span aria-hidden="true">▶</span> Nueva partida</button>
+              <label class="button-secondary" for="initial-save"><span aria-hidden="true">↑</span> Elegir partida</label>
+              <input id="initial-save" class="file-input" type="file" accept=".sav,.srm,.dsv,.dat,.eep,.fla">
+            </div>
+            <div id="selected-save" class="selected-save" hidden>
+              <span class="selected-save-name"></span>
+              <button id="load-game" class="button-primary" type="button">Iniciar con esta partida <span aria-hidden="true">→</span></button>
+            </div>
+            <p class="launch-footnote">Los archivos de guardado no son universales; utiliza uno del mismo juego y sistema.</p>
+          </div>
+        </section>
+
+        <section id="play-panel" class="play-panel" hidden>
+          <div class="emulator-stage">
+            <div id="game" aria-label="Pantalla del emulador"></div>
+            <div id="emulator-loading" class="emulator-loading">
+              <span class="loading-mark" aria-hidden="true">✳</span>
+              <span id="loading-status">CARGANDO CARTUCHO</span>
+              <span id="loading-hint" class="loading-hint" hidden></span>
+              <div class="loading-progress" role="progressbar" aria-label="Carga del cartucho" aria-valuemin="0" aria-valuemax="100" aria-valuetext="Preparando carga">
+                <span class="loading-progress-bar"></span>
+              </div>
+              <span id="loading-time" class="loading-time" aria-live="off">Tiempo transcurrido: 00:00</span>
+            </div>
+          </div>
+          <div class="play-toolbar">
+            <div class="play-toolbar-note"><span class="status-dot"></span><span id="session-status">SESIÓN ACTIVA</span></div>
+            <div class="save-actions">
+              <span class="save-help">Puedes cargar otra partida después de iniciar.</span>
+              <button id="export-save" class="save-button" type="button" disabled><span aria-hidden="true">↓</span> Guardar partida</button>
+              <label id="runtime-save-label" class="save-button is-disabled" for="runtime-save" title="Importa un archivo de guardado en esta sesión"><span aria-hidden="true">↑</span> Cargar partida</label>
+              <input id="runtime-save" class="file-input" type="file" accept=".sav,.srm,.dsv,.dat,.eep,.fla" disabled>
+            </div>
+          </div>
+          <p id="player-message" class="player-message" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+    </dialog>
+  </body>
+</html>

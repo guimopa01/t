@@ -1,0 +1,386 @@
+const games = [
+  { title: 'Pokémon Mystery Dungeon: Red Rescue Team', file: '2567 - Pokemon Mystery Dungeon - Red Rescue Team (E)(Rising Sun).gba', system: 'gba', mark: '✳', palette: 'palette-1' },
+  { title: 'Pokémon Platino', file: '3787 - Pokemon - Edicion Platino (Spain).nds', system: 'nds', mark: '✦', palette: 'palette-2' },
+  { title: 'Pokémon SoulSilver', file: '4833 - Pokemon - Edicion Plata SoulSilver (Spain).nds', system: 'nds', mark: '◌', palette: 'palette-3' },
+  { title: 'Pokémon Negra', file: '5597 - Pokemon - Edicion Negra (DSi Enhanced) (S)(WiKiLEAKS).nds', system: 'nds', mark: '✦', palette: 'palette-4' },
+  { title: 'Pokémon Rojo Fuego', file: 'Pokemon - Edicion Rojo Fuego (Spain).gba', system: 'gba', mark: '✹', palette: 'palette-5' },
+  { title: 'Pokémon Emerald', file: 'Pokemon - Emerald Version (USA, Europe).gba', system: 'gba', mark: '✳', palette: 'palette-6' },
+  { title: 'Pokémon Quetzal', file: 'PokemonQuetzalSpanishAlpha8v2.gba', system: 'gba', mark: '✦', palette: 'palette-2' },
+  { title: 'Pokémon Blanco 2', file: 'Pokémon Blanco2.nds', system: 'nds', mark: '◉', palette: 'palette-1' },
+  { title: 'Pokémon Glazed+', file: 'Pokémon Glazed+.gba', system: 'gba', mark: '✹', palette: 'palette-4' },
+  { title: 'Pokémon Negra 2', file: 'z120 - Pokemon - Edicion Negra 2 (Spain) (NDSi Enhanced) [b].nds', system: 'nds', mark: '◌', palette: 'palette-3' },
+  { title: 'Light Platinum', file: 'LightPlatinumEspPATCHED.gba', system: 'gba', mark: '✳', palette: 'palette-6' },
+];
+
+const grid = document.querySelector('#game-grid');
+const dialog = document.querySelector('#player-dialog');
+const launchPanel = document.querySelector('#launch-panel');
+const playPanel = document.querySelector('#play-panel');
+const gameContainer = document.querySelector('#game');
+const emulatorLoading = document.querySelector('#emulator-loading');
+const loadingStatus = document.querySelector('#loading-status');
+const loadingHint = document.querySelector('#loading-hint');
+const loadingProgress = document.querySelector('.loading-progress');
+const loadingProgressBar = document.querySelector('.loading-progress-bar');
+const initialSaveInput = document.querySelector('#initial-save');
+const runtimeSaveInput = document.querySelector('#runtime-save');
+const selectedSave = document.querySelector('#selected-save');
+const saveLabel = document.querySelector('.selected-save-name');
+let activeFilter = 'all';
+let activeGame = null;
+let queuedSave = null;
+let emulatorScriptLoading = false;
+let launchSequence = 0;
+let loadingHintTimeout = null;
+let loadingTimeInterval = null;
+let emulatorLoadingObserver = null;
+let noticeTimeout = null;
+
+function displayName(filename) {
+  return filename.replace(/\.(gba|nds|dsv)$/i, '').replace(/^\d+\s*-\s*/, '');
+}
+
+function renderGames() {
+  const query = document.querySelector('#search').value.trim().toLocaleLowerCase('es');
+  const visibleGames = games.filter((game) => {
+    const matchesFilter = activeFilter === 'all' || game.system === activeFilter;
+    return matchesFilter && `${game.title} ${game.file}`.toLocaleLowerCase('es').includes(query);
+  });
+
+  grid.innerHTML = visibleGames.map((game, index) => `
+    <article class="game-card" tabindex="0" role="button" aria-label="Abrir ${game.title}" data-game="${games.indexOf(game)}" style="animation-delay:${Math.min(index * 35, 280)}ms">
+      <div class="game-art ${game.system} ${game.palette}">
+        <span class="art-code">SR—${String(games.indexOf(game) + 1).padStart(3, '0')}</span>
+        <span class="art-sun" aria-hidden="true"></span>
+        <span class="art-symbol" aria-hidden="true">${game.mark}</span>
+        <span class="art-system">${game.system.toUpperCase()}</span>
+      </div>
+      <div class="game-meta">
+        <div><h3 class="game-title">${game.title}</h3><p class="game-filename">${displayName(game.file)}</p></div>
+        <span class="card-arrow" aria-hidden="true">↗</span>
+      </div>
+    </article>`).join('');
+
+  document.querySelector('#empty-state').hidden = visibleGames.length !== 0;
+}
+
+function setFilter(filter) {
+  activeFilter = filter;
+  document.querySelectorAll('.filter-tab').forEach((button) => {
+    const selected = button.dataset.filter === filter;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  renderGames();
+}
+
+function openGame(game) {
+  activeGame = game;
+  queuedSave = null;
+  document.querySelector('#player-title').textContent = game.title;
+  document.querySelector('#player-system').textContent = game.system === 'gba' ? 'GAME BOY ADVANCE' : 'NINTENDO DS';
+  initialSaveInput.value = '';
+  selectedSave.hidden = true;
+  launchPanel.hidden = false;
+  playPanel.hidden = true;
+  setSaveControlsEnabled(false);
+  loadingHint.hidden = true;
+  document.querySelector('#player-message').textContent = '';
+  dialog.showModal();
+}
+
+function closeGame() {
+  if (!dialog.open) return;
+  const manager = window.EJS_emulator?.gameManager;
+  launchSequence += 1;
+  clearTimeout(loadingHintTimeout);
+  clearInterval(loadingTimeInterval);
+  emulatorLoadingObserver?.disconnect();
+  emulatorLoadingObserver = null;
+  dialog.close();
+  if (typeof manager?.saveSaveFiles === 'function') {
+    try {
+      const result = manager.saveSaveFiles();
+      if (result && typeof result.then === 'function') {
+        Promise.resolve(result).catch((error) => {
+          console.error('No se pudo guardar automáticamente al cerrar el juego.', error);
+          showNotice('No se pudo guardar automáticamente. Exporta la partida antes de cerrar para conservarla.');
+        });
+      }
+    } catch (error) {
+      console.error('No se pudo guardar automáticamente al cerrar el juego.', error);
+      showNotice('No se pudo guardar automáticamente. Exporta la partida antes de cerrar para conservarla.');
+    }
+  }
+  document.querySelector('#game').replaceChildren();
+  activeGame = null;
+  queuedSave = null;
+  window.EJS_emulator = undefined;
+}
+
+function showMessage(message) {
+  document.querySelector('#player-message').textContent = message;
+}
+
+function showNotice(message) {
+  const notice = document.querySelector('#app-notice');
+  notice.textContent = message;
+  notice.hidden = false;
+  clearTimeout(noticeTimeout);
+  noticeTimeout = setTimeout(() => { notice.hidden = true; }, 8000);
+}
+
+function setSaveControlsEnabled(enabled) {
+  document.querySelector('#export-save').disabled = !enabled;
+  runtimeSaveInput.disabled = !enabled;
+  document.querySelector('#runtime-save-label').classList.toggle('is-disabled', !enabled);
+}
+
+function formatElapsedTime(milliseconds) {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = [minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
+  return hours ? `${String(hours).padStart(2, '0')}:${clock}` : clock;
+}
+
+function updateLoadingTime(startedAt) {
+  const elapsed = formatElapsedTime(performance.now() - startedAt);
+  document.querySelector('#loading-time').textContent = `Tiempo transcurrido: ${elapsed}`;
+  if (!loadingProgress.hasAttribute('aria-valuenow')) {
+    loadingProgress.setAttribute('aria-valuetext', `Cargando cartucho; tiempo transcurrido ${elapsed}`);
+  }
+}
+
+function updateEmulatorLoading(thisLaunch) {
+  if (launchSequence !== thisLaunch || !dialog.open) return;
+
+  const error = gameContainer.querySelector('.ejs_error_text');
+  if (error?.textContent.trim()) {
+    clearTimeout(loadingHintTimeout);
+    clearInterval(loadingTimeInterval);
+    loadingTimeInterval = null;
+    emulatorLoading.classList.add('has-error');
+    document.querySelector('#session-status').textContent = 'ERROR DE CARGA';
+    loadingStatus.textContent = `ERROR: ${error.textContent.trim()}`;
+    loadingHint.textContent = 'Comprueba la conexión y que el cartucho esté disponible en el servidor.';
+    loadingHint.hidden = false;
+    return;
+  }
+
+  const status = gameContainer.querySelector('.ejs_loading_text');
+  if (!status?.textContent.trim()) return;
+  const emulatorStatus = status.textContent.trim();
+  const normalizedStatus = emulatorStatus.toLocaleLowerCase('en');
+  const progressMatch = emulatorStatus.match(/(\d{1,3})\s*%/);
+  const percent = progressMatch ? Math.min(100, Number(progressMatch[1])) : null;
+
+  if (normalizedStatus.includes('game data')) {
+    loadingStatus.textContent = `DESCARGANDO CARTUCHO${percent === null ? '' : ` · ${percent}%`}`;
+  } else if (normalizedStatus.includes('game core')) {
+    loadingStatus.textContent = `DESCARGANDO EMULADOR${percent === null ? '' : ` · ${percent}%`}`;
+  } else if (normalizedStatus.includes('decompress')) {
+    loadingStatus.textContent = `PREPARANDO ARCHIVOS${percent === null ? '' : ` · ${percent}%`}`;
+  } else {
+    loadingStatus.textContent = emulatorStatus;
+  }
+
+  if (percent === null) {
+    loadingProgress.removeAttribute('aria-valuenow');
+    loadingProgressBar.classList.remove('is-determinate');
+    loadingProgressBar.style.removeProperty('width');
+    return;
+  }
+
+  loadingProgress.setAttribute('aria-valuenow', String(percent));
+  loadingProgress.setAttribute('aria-valuetext', `${loadingStatus.textContent}; ${percent}%`);
+  loadingProgressBar.classList.add('is-determinate');
+  loadingProgressBar.style.width = `${percent}%`;
+}
+
+function saveBytes(save) {
+  if (save instanceof Uint8Array) return save;
+  if (save instanceof ArrayBuffer) return new Uint8Array(save);
+  if (ArrayBuffer.isView(save)) return new Uint8Array(save.buffer, save.byteOffset, save.byteLength);
+  if (Array.isArray(save)) return new Uint8Array(save);
+  return null;
+}
+
+function downloadSave(save) {
+  const bytes = saveBytes(save);
+  if (!bytes?.byteLength) {
+    showMessage('No hay datos de guardado disponibles todavía. Guarda dentro del juego e inténtalo de nuevo.');
+    return;
+  }
+  const blob = new Blob([bytes], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${activeGame.file.replace(/\.(gba|nds|dsv)$/i, '').replace(/[^\w.-]+/g, '_')}.sav`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showMessage('Partida exportada. Guárdala en un lugar seguro.');
+}
+
+async function importSave(file) {
+  if (!file) return;
+  const manager = window.EJS_emulator?.gameManager;
+  if (!manager?.FS || typeof manager.getSaveFilePath !== 'function') {
+    queuedSave = file;
+    showMessage('Partida lista. Se cargará al iniciar el juego.');
+    return;
+  }
+
+  try {
+    const path = manager.getSaveFilePath();
+    if (!path) throw new Error('El núcleo no proporciona una ruta de guardado.');
+    manager.FS.writeFile(path, new Uint8Array(await file.arrayBuffer()));
+    manager.loadSaveFiles();
+    showMessage(`Partida cargada: ${file.name}`);
+  } catch (error) {
+    showMessage(`No se pudo importar esta partida: ${error.message}`);
+  }
+}
+
+function launchGame(saveFile = null) {
+  if (!activeGame) return;
+  if (emulatorScriptLoading) {
+    showNotice('El emulador todavía se está conectando. Espera un momento e inténtalo de nuevo.');
+    return;
+  }
+  const thisLaunch = ++launchSequence;
+  queuedSave = saveFile;
+  launchPanel.hidden = true;
+  playPanel.hidden = false;
+  emulatorLoading.classList.remove('is-hidden', 'has-error');
+  loadingStatus.textContent = 'CARGANDO EMULADOR';
+  loadingHint.hidden = true;
+  loadingProgress.removeAttribute('aria-valuenow');
+  loadingProgress.setAttribute('aria-valuetext', 'Preparando carga');
+  loadingProgressBar.classList.remove('is-determinate');
+  loadingProgressBar.style.removeProperty('width');
+  setSaveControlsEnabled(false);
+  document.querySelector('#session-status').textContent = 'INICIANDO SESIÓN';
+  emulatorScriptLoading = true;
+  clearTimeout(loadingHintTimeout);
+  clearInterval(loadingTimeInterval);
+  const loadingStartedAt = performance.now();
+  updateLoadingTime(loadingStartedAt);
+  loadingTimeInterval = setInterval(() => updateLoadingTime(loadingStartedAt), 1000);
+  loadingHintTimeout = setTimeout(() => {
+    if (launchSequence !== thisLaunch || !dialog.open) return;
+    loadingHint.textContent = activeGame.system === 'nds'
+      ? 'Los cartuchos de Nintendo DS pueden superar 500 MB y tardar varios minutos en la primera carga.'
+      : 'La primera carga puede tardar un poco. Si se prolonga, revisa la conexión y que el archivo esté disponible.';
+    loadingHint.hidden = false;
+  }, 15000);
+
+  window.EJS_player = '#game';
+  window.EJS_core = activeGame.system === 'gba' ? 'gba' : 'melonds';
+  window.EJS_gameUrl = `./${encodeURIComponent(activeGame.file)}`;
+  window.EJS_gameName = activeGame.title;
+  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_startOnLoaded = true;
+  window.EJS_onGameStart = async () => {
+    if (launchSequence !== thisLaunch || !dialog.open) return;
+    clearTimeout(loadingHintTimeout);
+    clearInterval(loadingTimeInterval);
+    loadingTimeInterval = null;
+    emulatorLoadingObserver?.disconnect();
+    emulatorLoadingObserver = null;
+    updateLoadingTime(loadingStartedAt);
+    emulatorLoading.classList.add('is-hidden');
+    document.querySelector('#session-status').textContent = 'SESIÓN ACTIVA';
+    setSaveControlsEnabled(true);
+    showMessage('Si la pantalla sigue negra, prueba un navegador actualizado con aceleración gráfica habilitada.');
+    const pending = queuedSave;
+    queuedSave = null;
+    if (pending) await importSave(pending);
+  };
+  window.EJS_onSaveSave = (event) => downloadSave(event?.save);
+  window.EJS_onLoadSave = () => runtimeSaveInput.click();
+
+  const script = document.createElement('script');
+  script.src = `${window.EJS_pathtodata}loader.js`;
+  script.async = true;
+  emulatorLoadingObserver?.disconnect();
+  emulatorLoadingObserver = new MutationObserver(() => updateEmulatorLoading(thisLaunch));
+  emulatorLoadingObserver.observe(gameContainer, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+  script.onload = () => { emulatorScriptLoading = false; };
+  script.onerror = () => {
+    emulatorScriptLoading = false;
+    if (launchSequence !== thisLaunch || !dialog.open) return;
+    clearTimeout(loadingHintTimeout);
+    clearInterval(loadingTimeInterval);
+    loadingTimeInterval = null;
+    emulatorLoadingObserver?.disconnect();
+    emulatorLoadingObserver = null;
+    emulatorLoading.classList.add('has-error');
+    loadingStatus.textContent = 'NO SE PUDO CARGAR EL EMULADOR';
+    loadingHint.textContent = 'Comprueba la conexión con EmulatorJS e inténtalo de nuevo.';
+    loadingHint.hidden = false;
+    document.querySelector('#session-status').textContent = 'ERROR DE CONEXIÓN';
+    showMessage('No se pudo cargar EmulatorJS. Comprueba tu conexión y vuelve a abrir el juego.');
+  };
+  document.body.append(script);
+}
+
+document.querySelector('#collection-count').textContent = String(games.length).padStart(2, '0');
+document.querySelector('#all-count').textContent = String(games.length).padStart(2, '0');
+document.querySelector('#gba-count').textContent = String(games.filter((game) => game.system === 'gba').length).padStart(2, '0');
+document.querySelector('#nds-count').textContent = String(games.filter((game) => game.system === 'nds').length).padStart(2, '0');
+renderGames();
+
+document.querySelectorAll('.filter-tab').forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.filter)));
+document.querySelector('#search').addEventListener('input', renderGames);
+grid.addEventListener('click', (event) => {
+  const card = event.target.closest('.game-card');
+  if (card) openGame(games[Number(card.dataset.game)]);
+});
+grid.addEventListener('keydown', (event) => {
+  if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.game-card')) {
+    event.preventDefault();
+    openGame(games[Number(event.target.dataset.game)]);
+  }
+});
+document.querySelector('#new-game').addEventListener('click', () => launchGame());
+initialSaveInput.addEventListener('change', () => {
+  queuedSave = initialSaveInput.files[0] || null;
+  if (!queuedSave) return;
+  saveLabel.textContent = queuedSave.name;
+  selectedSave.hidden = false;
+});
+document.querySelector('#load-game').addEventListener('click', () => launchGame(queuedSave));
+runtimeSaveInput.addEventListener('change', () => {
+  const file = runtimeSaveInput.files[0];
+  if (file) importSave(file);
+  runtimeSaveInput.value = '';
+});
+document.querySelector('#export-save').addEventListener('click', () => {
+  const manager = window.EJS_emulator?.gameManager;
+  if (!manager) {
+    showMessage('El emulador todavía se está iniciando.');
+    return;
+  }
+  try {
+    downloadSave(manager.getSaveFile(true));
+  } catch (error) {
+    console.error('No se pudo exportar la partida.', error);
+    showMessage('No se pudo exportar la partida. Guarda dentro del juego e inténtalo de nuevo.');
+  }
+});
+document.querySelector('#close-player').addEventListener('click', closeGame);
+dialog.addEventListener('click', (event) => {
+  if (event.target === dialog) closeGame();
+});
+dialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  closeGame();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === '/' && !dialog.open && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+    event.preventDefault();
+    document.querySelector('#search').focus();
+  }
+});
