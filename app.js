@@ -9,11 +9,6 @@ const cartridges = [
   { file: 'Pokemon - Emerald Version (USA, Europe).gba', system: 'gba' },
   { file: 'Pokémon Glazed+.gba', system: 'gba' },
   { file: 'PokemonQuetzalSpanishAlpha9v1.gba', system: 'gba', title: 'Pokémon Quetzal Spanish Alpha 9 v1' },
-  { file: '3787 - Pokemon - Edicion Platino (Spain).nds', system: 'nds' },
-  { file: '4833 - Pokemon - Edicion Plata SoulSilver (Spain).nds', system: 'nds' },
-  { file: '5597 - Pokemon - Edicion Negra (DSi Enhanced) (S)(WiKiLEAKS).nds', system: 'nds' },
-  { file: 'Pokémon Blanco2.nds', system: 'nds' },
-  { file: 'z120 - Pokemon - Edicion Negra 2 (Spain) (NDSi Enhanced) [b].nds', system: 'nds' },
 ];
 
 const grid = document.querySelector('#game-grid');
@@ -80,8 +75,12 @@ function openGame(system) {
   romFileInput.value = '';
   romFileInput.accept = system.system === 'gba' ? '.gba' : '.nds';
   romFileLabel.innerHTML = `<span aria-hidden="true">▣</span> Elegir cartucho ${system.system.toUpperCase()}`;
-  repositoryRomSelect.replaceChildren(new Option('Elige un juego del sitio', ''));
-  cartridges.filter((cartridge) => cartridge.system === system.system).forEach((cartridge) => {
+  const availableCartridges = cartridges.filter((cartridge) => cartridge.system === system.system);
+  repositoryRomSelect.replaceChildren(new Option(
+    availableCartridges.length ? 'Elige un juego del sitio' : 'No hay juegos disponibles en Pages',
+    '',
+  ));
+  availableCartridges.forEach((cartridge) => {
     const option = new Option(cartridge.title || displayName(cartridge.file), cartridge.file);
     repositoryRomSelect.add(option);
   });
