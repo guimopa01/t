@@ -123,12 +123,18 @@ h2 { margin-bottom: 0; font-size: 30px; line-height: 1.15; font-weight: 600; }
 .launch-copy .eyebrow { margin-bottom: 15px; }
 .launch-copy h3 { margin-bottom: 13px; font-size: 37px; line-height: 1.06; font-weight: 600; }
 .launch-description { max-width: 350px; margin-bottom: 21px; color: #758075; font-size: 12px; line-height: 1.65; }
+.repository-rom-picker { margin-bottom: 12px; }
+.repository-rom-picker > label { display: block; margin-bottom: 7px; color: #748174; font: 9px var(--mono); }
+.repository-rom-select { min-width: 0; min-height: 42px; flex: 1 1 220px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); font: 11px var(--mono); }
+.repository-rom-select:focus-visible { outline: 2px solid #e97858; outline-offset: 2px; }
 .launch-actions { display: flex; flex-wrap: wrap; gap: 9px; }
 .button-primary, .button-secondary { min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--ink); cursor: pointer; font-size: 11px; font-weight: 600; text-decoration: none; }
 .button-primary { background: var(--ink); color: var(--paper); }
 .button-primary:hover { background: #35463a; }
 .button-primary span { color: var(--green); }
 .button-secondary { background: transparent; color: var(--ink); }
+.button-secondary[hidden] { display: none; }
+.button-secondary:disabled { cursor: not-allowed; opacity: .5; }
 .button-secondary:hover { background: #e1e5d9; }
 .button-secondary span { color: #e97858; }
 .selected-save { margin-top: 16px; padding-top: 13px; display: flex; flex-direction: column; align-items: start; gap: 11px; border-top: 1px solid var(--line); }

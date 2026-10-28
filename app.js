@@ -2,6 +2,19 @@ const systems = [
   { system: 'gba', title: 'Juegos Game Boy Advance', description: 'Cartuchos .gba · núcleo mGBA', mark: '✳', palette: 'palette-1' },
   { system: 'nds', title: 'Juegos Nintendo DS', description: 'Cartuchos .nds · núcleo melonDS', mark: '◉', palette: 'palette-2' },
 ];
+const cartridges = [
+  { file: '2567 - Pokemon Mystery Dungeon - Red Rescue Team (E)(Rising Sun).gba', system: 'gba' },
+  { file: 'LightPlatinumEspPATCHED.gba', system: 'gba' },
+  { file: 'Pokemon - Edicion Rojo Fuego (Spain).gba', system: 'gba' },
+  { file: 'Pokemon - Emerald Version (USA, Europe).gba', system: 'gba' },
+  { file: 'Pokémon Glazed+.gba', system: 'gba' },
+  { file: 'PokemonQuetzalSpanishAlpha9v1.gba', system: 'gba', title: 'Pokémon Quetzal Spanish Alpha 9 v1' },
+  { file: '3787 - Pokemon - Edicion Platino (Spain).nds', system: 'nds' },
+  { file: '4833 - Pokemon - Edicion Plata SoulSilver (Spain).nds', system: 'nds' },
+  { file: '5597 - Pokemon - Edicion Negra (DSi Enhanced) (S)(WiKiLEAKS).nds', system: 'nds' },
+  { file: 'Pokémon Blanco2.nds', system: 'nds' },
+  { file: 'z120 - Pokemon - Edicion Negra 2 (Spain) (NDSi Enhanced) [b].nds', system: 'nds' },
+];
 
 const grid = document.querySelector('#game-grid');
 const dialog = document.querySelector('#player-dialog');
@@ -16,6 +29,8 @@ const loadingProgressBar = document.querySelector('.loading-progress-bar');
 const initialSaveInput = document.querySelector('#initial-save');
 const romFileInput = document.querySelector('#rom-file');
 const romFileLabel = document.querySelector('#rom-file-label');
+const repositoryRomSelect = document.querySelector('#repository-rom');
+const repositoryRomButton = document.querySelector('#load-repository-rom');
 const romMessage = document.querySelector('#rom-message');
 const selectedCartridge = document.querySelector('#selected-cartridge');
 const selectedRomName = document.querySelector('#selected-rom-name');
@@ -65,6 +80,13 @@ function openGame(system) {
   romFileInput.value = '';
   romFileInput.accept = system.system === 'gba' ? '.gba' : '.nds';
   romFileLabel.innerHTML = `<span aria-hidden="true">▣</span> Elegir cartucho ${system.system.toUpperCase()}`;
+  repositoryRomSelect.replaceChildren(new Option('Elige un juego del sitio', ''));
+  cartridges.filter((cartridge) => cartridge.system === system.system).forEach((cartridge) => {
+    const option = new Option(cartridge.title || displayName(cartridge.file), cartridge.file);
+    repositoryRomSelect.add(option);
+  });
+  repositoryRomSelect.value = '';
+  repositoryRomButton.disabled = true;
   document.querySelector('#rom-extension').textContent = system.system === 'gba' ? '.gba' : '.nds';
   document.querySelector('#player-title').textContent = system.title;
   document.querySelector('#player-system').textContent = system.system === 'gba' ? 'GAME BOY ADVANCE' : 'NINTENDO DS';
@@ -514,6 +536,51 @@ grid.addEventListener('keydown', (event) => {
 });
 document.querySelector('#new-game').addEventListener('click', () => {
   launchGame(null, false, activeRomObjectUrl).catch(reportLaunchFailure);
+});
+repositoryRomSelect.addEventListener('change', () => {
+  repositoryRomButton.disabled = !repositoryRomSelect.value;
+});
+repositoryRomButton.addEventListener('click', async () => {
+  if (!activeGame) return;
+  const cartridge = cartridges.find((entry) => entry.file === repositoryRomSelect.value);
+  if (!cartridge || cartridge.system !== activeGame.system) return;
+  const selectedGame = activeGame;
+  repositoryRomButton.disabled = true;
+  repositoryRomSelect.disabled = true;
+  romMessage.textContent = `Cargando ${cartridge.title || displayName(cartridge.file)} desde este sitio...`;
+  romMessage.hidden = false;
+
+  try {
+    const romUrl = new URL(cartridge.file, document.baseURI);
+    const response = await fetch(romUrl);
+    if (!response.ok) throw new Error(`El servidor respondió ${response.status}.`);
+
+    const rom = await response.blob();
+    const header = await rom.slice(0, 256).text();
+    if (header.startsWith('version https://git-lfs.github.com/spec/v1')) {
+      throw new Error('El servidor entregó un puntero Git LFS, no el archivo ROM real.');
+    }
+    if (rom.size <= 256) throw new Error('El archivo recibido está vacío o incompleto.');
+    if (activeGame !== selectedGame || !dialog.open) return;
+
+    if (activeRomObjectUrl) URL.revokeObjectURL(activeRomObjectUrl);
+    activeRomObjectUrl = URL.createObjectURL(rom);
+    selectedGame.file = cartridge.file;
+    selectedGame.title = cartridge.title || displayName(cartridge.file);
+    document.querySelector('#player-title').textContent = selectedGame.title;
+    selectedRomName.textContent = `Cartucho: ${selectedGame.file}`;
+    selectedCartridge.hidden = false;
+    romMessage.textContent = `${selectedGame.title} está listo. Elige nueva partida o carga un guardado.`;
+  } catch (error) {
+    console.error('No se pudo cargar el cartucho desde este sitio.', error);
+    if (activeGame === selectedGame && dialog.open) {
+      romMessage.textContent = `No se pudo cargar el cartucho: ${error.message}`;
+      romMessage.hidden = false;
+    }
+  } finally {
+    repositoryRomButton.disabled = !repositoryRomSelect.value;
+    repositoryRomSelect.disabled = false;
+  }
 });
 romFileInput.addEventListener('change', async () => {
   const file = romFileInput.files[0];
